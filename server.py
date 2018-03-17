@@ -125,6 +125,7 @@ class Shell(InteractiveConsole):
         self.send('prompt', prompt=prompt)
 
     def interact(self):
+        self.copy_to_repl()
         ps1 = '>>> '
         ps2 = '... '
         self.write('Python {} on {})\n'.format(sys.version, sys.platform))
