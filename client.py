@@ -6,11 +6,17 @@ import rlcompleter
 import socket
 import sys
 
+py3 = sys.version_info[0] >= 3
+if not py3:
+    input = raw_input
+
 libedit = 'libedit' in readline.__doc__
 if libedit:
     readline.parse_and_bind('bind ^I rl_complete')
 else:
     readline.parse_and_bind('tab: complete')
+    readline.parse_and_bind('set completion-ignore-case on')
+    readline.parse_and_bind('set show-all-if-ambiguous on')
 
 histfile = os.path.expanduser('~/.bn_repl_history')
 if os.path.exists(histfile):
@@ -24,14 +30,20 @@ atexit.register(readline.write_history_file, histfile)
 
 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 s.connect(os.path.expanduser('~/.bn_repl.sock'))
-sin = s.makefile('r', bufsize=1)
+if py3:
+    sin = s.makefile('r', buffering=1, encoding='utf8')
+else:
+    sin = s.makefile('r', bufsize=1)
 
 def send(cmd, **m):
     m['cmd'] = cmd
     s.send((json.dumps(m) + '\n').encode('utf8'))
 
 def recv():
-    return json.loads(sin.readline().decode('utf8'))
+    line = sin.readline()
+    if not py3:
+        line = line.decode('utf8')
+    return json.loads(line)
 
 def complete(text, state):
     if not text:
@@ -49,7 +61,7 @@ while True:
     if cmd == 'prompt':
         prompt = m['prompt']
         try:
-            line = raw_input(prompt)
+            line = input(prompt)
             send('input', text=line + '\n')
         except KeyboardInterrupt:
             send('reset')
