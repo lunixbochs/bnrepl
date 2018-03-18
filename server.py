@@ -128,7 +128,7 @@ class Shell(InteractiveConsole):
         self.copy_to_repl()
         ps1 = '>>> '
         ps2 = '... '
-        self.write('Python {} on {})\n'.format(sys.version, sys.platform))
+        self.write('Python {} on {}\n'.format(sys.version, sys.platform))
         self.prompt(ps1)
         while True:
             m = self.recv()
