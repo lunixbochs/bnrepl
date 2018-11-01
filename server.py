@@ -4,7 +4,6 @@ _locals.update({m: __import__(m) for m in (
     'os', 're', 'sys',
 )})
 
-import SocketServer
 import gc
 import io
 import json
@@ -18,12 +17,26 @@ import threading
 import traceback
 from code import InteractiveConsole
 
+# python2/3 compat
+py3 = sys.version_info[0] >= 3
+
+if py3: import socketserver
+else:   import SocketServer as socketserver
+
+def socket_makefile(s, mode):
+    if py3:
+        return s.makefile(mode, buffering=1, encoding='utf8')
+    else:
+        return s.makefile(mode, bufsize=1)
+
+# end python compat
+
 class StdoutWriter(io.IOBase):
     def __init__(self, shell): self.shell = shell
     def write(self, b): return self.shell.output(b)
     def writable(self): return True
 
-class InteractiveServer(SocketServer.BaseRequestHandler):
+class InteractiveServer(socketserver.BaseRequestHandler):
     def handle(self):
         old = sys.stdout
         olderr = sys.stderr
@@ -40,7 +53,7 @@ class InteractiveServer(SocketServer.BaseRequestHandler):
 class Shell(InteractiveConsole):
     def __init__(self, s):
         self.s = s
-        self.buf = s.makefile('r', bufsize=1)
+        self.buf = socket_makefile(s, 'r')
         self.outbuf = []
         self.reset_count = 0
         InteractiveConsole.__init__(self)
@@ -106,11 +119,13 @@ class Shell(InteractiveConsole):
             raise SystemExit
 
     def output(self, b):
-        self.outbuf.append(b.decode('utf8'))
+        if not py3: b = b.decode('utf8')
+        self.outbuf.append(b)
         return len(b)
 
     def recv(self):
-        line = self.buf.readline().decode('utf8')
+        line = self.buf.readline()
+        if not py3: line = line.decode('utf8')
         if not line: return None
         return json.loads(line)
 
@@ -161,8 +176,8 @@ class Shell(InteractiveConsole):
 path = os.path.expanduser('~/.bn_repl.sock')
 if os.path.exists(path):
     os.unlink(path)
-SocketServer.UnixStreamServer.allow_reuse_address = True
-server = SocketServer.UnixStreamServer(path, InteractiveServer)
+socketserver.UnixStreamServer.allow_reuse_address = True
+server = socketserver.UnixStreamServer(path, InteractiveServer)
 t = threading.Thread(target=server.serve_forever)
 t.daemon = True
 t.start()

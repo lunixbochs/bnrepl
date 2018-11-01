@@ -1,1 +1,1 @@
-import server
+from . import server
